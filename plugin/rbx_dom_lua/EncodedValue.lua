@@ -20,6 +20,39 @@ local function serializeFloat(value)
 	return value
 end
 
+-- msgpack-luau decodes MessagePack int64 (and uint64) as a table with two
+-- unsigned 32-bit halves (`mostSignificantPart`, `leastSignificantPart`).
+-- Integers that fit in int32 still decode as plain Lua numbers. Values outside
+-- ±2^31 therefore arrive here as that table, which must be converted before
+-- assigning to Roblox Int64 properties.
+local int64UnpackDebugLoggedOnce = false
+local function int64PodFromMsgpack(pod: any): any
+	if type(pod) == "number" then
+		return pod
+	end
+	if
+		type(pod) == "table"
+		and pod._msgpackType ~= nil
+		and type(pod.mostSignificantPart) == "number"
+		and type(pod.leastSignificantPart) == "number"
+	then
+		if not int64UnpackDebugLoggedOnce then
+			int64UnpackDebugLoggedOnce = true
+			print(
+				"[Rojo Plugin DEBUG] EncodedValue.Int64: converted msgpack split-int table -> number (first time this session)"
+			)
+		end
+		local high = pod.mostSignificantPart
+		local low = pod.leastSignificantPart
+		local highSigned = high
+		if highSigned >= 2147483648 then
+			highSigned = highSigned - 4294967296
+		end
+		return low + highSigned * 4294967296
+	end
+	return pod
+end
+
 local ALL_AXES = { "X", "Y", "Z" }
 local ALL_FACES = { "Right", "Top", "Back", "Left", "Bottom", "Front" }
 
@@ -307,7 +340,7 @@ types = {
 	},
 
 	Int64 = {
-		fromPod = identity,
+		fromPod = int64PodFromMsgpack,
 		toPod = identity,
 	},
 

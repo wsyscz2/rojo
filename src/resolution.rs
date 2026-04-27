@@ -413,6 +413,11 @@ mod test {
             Variant::Int64(532413),
         );
 
+        assert_eq!(
+            resolve("IntValue", "Value", "3000000000"),
+            Variant::Int64(3_000_000_000),
+        );
+
         assert_eq!(resolve("Part", "Transparency", "1"), Variant::Float32(1.0));
         assert_eq!(resolve("NumberValue", "Value", "1"), Variant::Float64(1.0));
 
